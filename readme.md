@@ -40,6 +40,7 @@ FOR ESP32C3 4MB:
 
 v0.2：
 HTML网页加入MQTT选项和基于JS的折叠表单，包括ID USERNAME PASSWORD SERVER和UDP广播选项，加入打印功能用于测试，计划在下个版本加入MQTT连接和在内网UDP广播自己的IP与设定的设备名功能。
+
 v0.1：
 实现最基础的HTML表单和POST请求的回读，模拟EEPROM的读写和DNS等业务逻辑。
 

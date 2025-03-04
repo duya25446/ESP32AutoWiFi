@@ -94,6 +94,19 @@ void loop() {
   }
 }
 ```
+到手机或电脑连接WiFi：
+
+![WiFi Connect](image/1.jpg)
+
+到浏览器输入配置的域名，默认配置为"wificonfig.com":
+
+![Config page](image/2.jpg)
+
+使用输入SSID和PASSWORD，点击连接，不出意外就会收到连接成功的页面：
+
+![Config page](image/3.jpg)
+
+如果连接WiFi成功，这个SSID和PASSWORD就会被记录到ESP32的Flash模拟的EEPROM中，下次启动时会直接尝试连接，如果连接失败会重新启动配置AP，如此就完成了一次WiFi的配置。
 
 ## 详细API文档
 
@@ -242,11 +255,9 @@ void setup() {
 
 ## 许可证
 
-该项目采用MIT许可证 - 详情请查看LICENSE文件
+该项目采用MIT许可证
 
 ## 声明
 
-本项目的注释和这篇描述文档使用AI生成（除了这句话我手打的）
----
-
+本项目的注释和描述文档大部分使用AI生成，也有部分自己撰写。
 希望这个库能简化您的ESP32项目WiFi配置过程！如有任何问题或建议，欢迎在GitHub仓库中提出issue。

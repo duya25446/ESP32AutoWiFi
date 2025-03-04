@@ -20,7 +20,10 @@ ESP32 WiFiConfigManager 是一个便捷的Arduino ESP32 WiFi配置库，它能�
 - 🔌 自定义DNS服务，可使用域名访问
 - ⚙️ 可定制的超时和回调机制
 - 🔒 支持AP模式密码保护
+
 __注意，这个库引用了很多乐鑫的官方库，导致占用空间很多，单独编译该库的占用如下__
+
+
 >FOR ESP32 4MB:
 >Sketch uses 946732 bytes (72%) of program storage space. Maximum is 1310720 bytes.
 >Global variables use 45780 bytes (13%) of dynamic memory, leaving 281900 bytes for local variables. Maximum is 327680 bytes.

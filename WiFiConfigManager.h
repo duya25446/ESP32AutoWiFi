@@ -55,6 +55,14 @@ private:
   int _eepromSize;
   static const int SSID_ADDR = 0;
   static const int PASS_ADDR = 32;
+  //MQTT和UDP广播的字段
+  bool _mqttEnabled;
+  bool _udpEnabled;
+  String _mqttServer;
+  String _mqttPort;
+  String _mqttUsername;
+  String _mqttPassword;
+  String _mqttClientID;
 
   // DNS服务器相关
   DNSServer* _dnsServer;

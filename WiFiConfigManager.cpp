@@ -46,12 +46,16 @@ WiFiConfigManager::WiFiConfigManager(const char* apSSID,
             color: #0066cc;
             text-align: center;
         }
+        h2 {
+            color: #333;
+            margin-top: 20px;
+        }
         label {
             display: block;
             margin-top: 10px;
             font-weight: bold;
         }
-        input[type=text], input[type=password] {
+        input[type=text], input[type=password], input[type=number] {
             width: 100%;
             padding: 10px;
             margin: 8px 0;
@@ -59,6 +63,9 @@ WiFiConfigManager::WiFiConfigManager(const char* apSSID,
             border: 1px solid #ccc;
             border-radius: 4px;
             box-sizing: border-box;
+        }
+        input[type=checkbox] {
+            margin-right: 10px;
         }
         input[type=submit] {
             width: 100%;
@@ -73,19 +80,78 @@ WiFiConfigManager::WiFiConfigManager(const char* apSSID,
         input[type=submit]:hover {
             background-color: #45a049;
         }
+        .mqtt-config, .udp-config {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-top: 10px;
+            background-color: #f9f9f9;
+        }
+        .hidden {
+            display: none;
+        }
     </style>
+    <script>
+        function toggleMQTT() {
+            var checkbox = document.getElementById('enableMQTT');
+            var mqttConfig = document.getElementById('mqttConfig');
+            mqttConfig.className = checkbox.checked ? 'mqtt-config' : 'mqtt-config hidden';
+        }
+
+        function toggleUDP() {
+            var checkbox = document.getElementById('enableUDP');
+            var udpConfig = document.getElementById('udpConfig');
+            udpConfig.className = checkbox.checked ? 'udp-config' : 'udp-config hidden';
+        }
+    </script>
 </head>
 <body>
     <div class="container">
         <h1>ESP32 WiFi Configuration</h1>
         <form action="/save" method="post">
+            <h2>WiFi Settings</h2>
             <label for="ssid">WiFi SSID:</label>
             <input type="text" id="ssid" name="ssid" placeholder="Enter WiFi name" required>
 
             <label for="password">WiFi Password:</label>
             <input type="password" id="password" name="password" placeholder="Enter WiFi password" required>
 
-            <input type="submit" value="Connect">
+            <h2>MQTT Configuration</h2>
+            <label>
+                <input type="checkbox" id="enableMQTT" name="enableMQTT" onchange="toggleMQTT()"> Enable MQTT Connection
+            </label>
+
+            <div id="mqttConfig" class="mqtt-config hidden">
+                <label for="mqttServer">MQTT Server Address:</label>
+                <input type="text" id="mqttServer" name="mqttServer" placeholder="e.g., mqtt.example.com">
+
+                <label for="mqttPort">MQTT Port:</label>
+                <input type="number" id="mqttPort" name="mqttPort" placeholder="e.g., 1883">
+
+                <label for="mqttUsername">MQTT Username:</label>
+                <input type="text" id="mqttUsername" name="mqttUsername" placeholder="Enter MQTT username">
+
+                <label for="mqttPassword">MQTT Password:</label>
+                <input type="password" id="mqttPassword" name="mqttPassword" placeholder="Enter MQTT password">
+
+                <label for="mqttClientID">MQTT Client ID:</label>
+                <input type="text" id="mqttClientID" name="mqttClientID" placeholder="Enter MQTT client ID">
+            </div>
+
+            <h2>UDP Broadcast</h2>
+            <label>
+                <input type="checkbox" id="enableUDP" name="enableUDP" onchange="toggleUDP()"> Enable Periodic UDP Broadcast
+            </label>
+
+            <div id="udpConfig" class="udp-config hidden">
+                <label for="udpPort">UDP Broadcast Port:</label>
+                <input type="number" id="udpPort" name="udpPort" placeholder="e.g., 4210" value="4210">
+
+                <label for="deviceName">Device Name:</label>
+                <input type="text" id="deviceName" name="deviceName" placeholder="Enter device name">
+            </div>
+
+            <input type="submit" value="Save Configuration">
         </form>
         <p id="status"></p>
     </div>
@@ -252,7 +318,7 @@ void WiFiConfigManager::setupAPMode() {
   IPAddress IP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
   Serial.println(IP);
-  
+
   // 设置DNS服务器
   _dnsServer->start(DNS_PORT, _apDomain, IP);
   Serial.println("DNS server started");
@@ -316,9 +382,51 @@ void WiFiConfigManager::handleSave() {
     writeToEEPROM(PASS_ADDR, _targetPassword);
     EEPROM.commit();
 
-    Serial.println("New WiFi credentials saved:");
+    // 获取MQTT配置
+    bool enableMQTT = _server->hasArg("enableMQTT");
+
+    // 如果启用了MQTT，获取相关参数
+    if (enableMQTT) {
+      String mqttServer = _server->arg("mqttServer");
+      String mqttPort = _server->arg("mqttPort");
+      String mqttUsername = _server->arg("mqttUsername");
+      String mqttPassword = _server->arg("mqttPassword");
+      String mqttClientID = _server->arg("mqttClientID");
+
+      // 这里仅打印输出，不保存到EEPROM（由您自己实现）
+      Serial.println("MQTT Configuration:");
+      Serial.println("Server: " + mqttServer);
+      Serial.println("Port: " + mqttPort);
+      Serial.println("Username: " + mqttUsername);
+      Serial.println("Client ID: " + mqttClientID);
+
+      // 在这里可以将这些值存储到类成员变量中
+      // _mqttServer = mqttServer;
+      // _mqttPort = mqttPort;
+      // 等等...
+    }
+
+    // 获取UDP广播配置
+    bool enableUDP = _server->hasArg("enableUDP");
+
+    if (enableUDP) {
+      String udpPort = _server->arg("udpPort");
+      String deviceName = _server->arg("deviceName");
+
+      Serial.println("UDP Configuration:");
+      Serial.println("Port: " + udpPort);
+      Serial.println("Device Name: " + deviceName);
+
+      // 在这里将这些值存储到类成员变量中
+      // _udpPort = udpPort.toInt();
+      // _deviceName = deviceName;
+    }
+
+    Serial.println("Configuration saved:");
     Serial.println("SSID: " + _targetSSID);
     Serial.println("Password: " + _targetPassword);
+    Serial.println("MQTT Enabled: " + String(enableMQTT ? "Yes" : "No"));
+    Serial.println("UDP Broadcast Enabled: " + String(enableUDP ? "Yes" : "No"));
 
     // 先发送响应
     _server->send(200, "text/html", _successPage);
@@ -326,8 +434,12 @@ void WiFiConfigManager::handleSave() {
     // 添加短暂延迟确保响应被发送
     delay(1000);
 
-    // 然后在主循环中设置连接标志
+    // 设置连接标志
     _shouldConnect = true;
+
+    // 您可能想要设置其他标志
+    // _mqttEnabled = enableMQTT;
+    // _udpEnabled = enableUDP;
   } else {
     _server->send(400, "text/plain", "Missing required parameters");
   }

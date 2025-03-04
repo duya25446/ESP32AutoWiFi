@@ -34,8 +34,9 @@ void setup() {
 
   // 初始化WiFiConfigManager
   wifiManager.E2PROMbegin();
-  //wifiManager.clearWiFiCredentials();
+  wifiManager.clearWiFiCredentials();
   wifiManager.begin();
+
 }
 
 void loop() {

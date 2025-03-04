@@ -21,7 +21,7 @@ ESP32 WiFiConfigManager 是一个便捷的Arduino ESP32 WiFi配置库，它能�
 - ⚙️ 可定制的超时和回调机制
 - 🔒 支持AP模式密码保护
 
-__注意，这个库引用了很多乐鑫的官方库，导致占用空间很多，单独编译该库的占用如下__
+__注意，这个库引用了很多乐鑫的官方库，导致占用空间很多，单独编译该库的占用如下(代码修改以后又不一样了但是差别不是很大，参考即可)__
 
 
 FOR ESP32 4MB:
@@ -35,9 +35,17 @@ FOR ESP32S3 8MB:
 FOR ESP32C3 4MB:
 >Sketch uses 973764 bytes (74%) of program storage space. Maximum is 1310720 bytes.
 >Global variables use 35900 bytes (10%) of dynamic memory, leaving 291780 bytes for local variables. Maximum is 327680 bytes.
+
+## 版本
+
+v0.2：
+HTML网页加入MQTT选项和基于JS的折叠表单，包括ID USERNAME PASSWORD SERVER和UDP广播选项，加入打印功能用于测试，计划在下个版本加入MQTT连接和在内网UDP广播自己的IP与设定的设备名功能。
+v0.1：
+实现最基础的HTML表单和POST请求的回读，模拟EEPROM的读写和DNS等业务逻辑。
+
 ## 安装
 
-很遗憾我不会上传到arduino lib也不会打包成zip,这就是一个.cpp和.h类，可以直接拉到你的项目文件夹内，arduino会自动引用同文件夹下的所有源文件，你可以直接在项目中 `#include <WiFiConfigManager.h>` 来使用这个类库。
+很遗憾我不会上传到arduino lib也不会把库打包成zip，这就是两个文件.cpp和.h构成的类，可以将WiFiConfigManager.h文件和WiFiConfigManager.cpp文件直接复制粘贴到你的Arduino项目文件夹内（和.ino文件在一个目录下），arduino会自动引用同文件夹下的所有源文件，你可以直接在项目中 `#include <WiFiConfigManager.h>` 来使用这个类库。
 
 ## 基本使用
 
@@ -95,6 +103,8 @@ void loop() {
   }
 }
 ```
+__（图还是0.1版本的，等0.3版本后再更新）__
+
 到手机或电脑连接WiFi：
 
 ![WiFi Connect](image/1.jpg)

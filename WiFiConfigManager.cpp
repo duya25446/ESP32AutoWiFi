@@ -4,24 +4,23 @@
 WiFiConfigManager* WiFiConfigManager::_instance = nullptr;
 
 // 构造函数
-WiFiConfigManager::WiFiConfigManager(const char* apSSID, const char* apPassword, int eepromSize) 
-    : _apSSID(apSSID), 
-      _apPassword(apPassword),
-      _eepromSize(eepromSize),
-      _shouldConnect(false),
-      _connectionTimeout(20),
-      _connectedCallback(nullptr),
-      _apModeCallback(nullptr)
-{
-    _server = new WebServer(80);
-    _instance = this;
+WiFiConfigManager::WiFiConfigManager(const char* apSSID, const char* apPassword, int eepromSize)
+  : _apSSID(apSSID),
+    _apPassword(apPassword),
+    _eepromSize(eepromSize),
+    _shouldConnect(false),
+    _connectionTimeout(20),
+    _connectedCallback(nullptr),
+    _apModeCallback(nullptr) {
+  _server = new WebServer(80);
+  _instance = this;
 
-    // HTML页面
-    _htmlPage = R"rawliteral(
+  // HTML页面
+  _htmlPage = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ESP32 WiFi 配置</title>
+    <title>ESP32 WiFi Configuration</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {
@@ -73,15 +72,15 @@ WiFiConfigManager::WiFiConfigManager(const char* apSSID, const char* apPassword,
 </head>
 <body>
     <div class="container">
-        <h1>ESP32 WiFi 配置</h1>
+        <h1>ESP32 WiFi Configuration</h1>
         <form action="/save" method="post">
-            <label for="ssid">WiFi 名称:</label>
-            <input type="text" id="ssid" name="ssid" placeholder="输入WiFi名称" required>
+            <label for="ssid">WiFi SSID:</label>
+            <input type="text" id="ssid" name="ssid" placeholder="Enter WiFi name" required>
 
-            <label for="password">WiFi 密码:</label>
-            <input type="password" id="password" name="password" placeholder="输入WiFi密码" required>
+            <label for="password">WiFi Password:</label>
+            <input type="password" id="password" name="password" placeholder="Enter WiFi password" required>
 
-            <input type="submit" value="连接">
+            <input type="submit" value="Connect">
         </form>
         <p id="status"></p>
     </div>
@@ -89,12 +88,12 @@ WiFiConfigManager::WiFiConfigManager(const char* apSSID, const char* apPassword,
 </html>
 )rawliteral";
 
-    // 成功页面
-    _successPage = R"rawliteral(
+
+  _successPage = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-    <title>配置成功</title>
+    <title>Configuration Successful</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {
@@ -123,232 +122,242 @@ WiFiConfigManager::WiFiConfigManager(const char* apSSID, const char* apPassword,
 </head>
 <body>
     <div class="container">
-        <h1>WiFi 配置成功！</h1>
-        <p>ESP32 将尝试连接到您指定的WiFi网络。</p>
-        <p>如果连接成功，此AP将关闭。</p>
-        <p>如果连接失败，AP将重新启动，您可以重新尝试配置。</p>
+        <h1>WiFi Configuration Successful!</h1>
+        <p>ESP32 will try to connect to the WiFi network you specified.</p>
+        <p>If connection is successful, this AP will shut down.</p>
+        <p>If connection fails, the AP will restart and you can try to configure again.</p>
     </div>
 </body>
 </html>
 )rawliteral";
 }
 
+void WiFiConfigManager::E2PROMbegin()
+{
+  // 初始化EEPROM
+  EEPROM.begin(_eepromSize);
+}
+
 void WiFiConfigManager::begin() {
-    // 初始化EEPROM
-    EEPROM.begin(_eepromSize);
 
-    // 尝试从EEPROM读取保存的WiFi凭据
-    _targetSSID = readFromEEPROM(SSID_ADDR);
-    _targetPassword = readFromEEPROM(PASS_ADDR);
 
-    Serial.println("Stored WiFi credentials:");
-    Serial.println("SSID: " + _targetSSID);
-    Serial.println("Password: " + _targetPassword);
+  // 尝试从EEPROM读取保存的WiFi凭据
+  _targetSSID = readFromEEPROM(SSID_ADDR);
+  _targetPassword = readFromEEPROM(PASS_ADDR);
 
-    // 如果有保存的凭据，尝试连接
-    if (_targetSSID.length() > 0) {
-        connectToWiFi();
-    }
+  Serial.println("Stored WiFi credentials:");
+  Serial.println("SSID: " + _targetSSID);
+  Serial.println("Password: " + _targetPassword);
 
-    // 如果连接失败或没有保存的凭据，启动AP模式
-    if (WiFi.status() != WL_CONNECTED) {
-        setupAPMode();
-    }
+  // 如果有保存的凭据，尝试连接
+  if (_targetSSID.length() > 0) {
+    connectToWiFi();
+  }
+
+  // 如果连接失败或没有保存的凭据，启动AP模式
+  if (WiFi.status() != WL_CONNECTED) {
+    setupAPMode();
+  }
 }
 
 void WiFiConfigManager::loop() {
-    // 处理HTTP请求
-    _server->handleClient();
+  // 处理HTTP请求
+  _server->handleClient();
 
-    // 如果收到新的WiFi配置，尝试连接
-    if (_shouldConnect) {
-        _shouldConnect = false;
-        connectToWiFi();
+  // 如果收到新的WiFi配置，尝试连接
+  if (_shouldConnect) {
+    _shouldConnect = false;
+    connectToWiFi();
 
-        // 如果连接成功，关闭AP模式
-        if (WiFi.status() == WL_CONNECTED) {
-            WiFi.softAPdisconnect(true);
-            Serial.println("AP mode disabled after successful connection");
+    // 如果连接成功，关闭AP模式
+    if (WiFi.status() == WL_CONNECTED) {
+      WiFi.softAPdisconnect(true);
+      Serial.println("AP mode disabled after successful connection");
 
-            // 触发连接成功回调
-            if (_connectedCallback) {
-                _connectedCallback();
-            }
-        } else {
-            // 如果连接失败，重新启动AP模式
-            setupAPMode();
-        }
+      // 触发连接成功回调
+      if (_connectedCallback) {
+        _connectedCallback();
+      }
+    } else {
+      // 如果连接失败，重新启动AP模式
+      setupAPMode();
     }
+  }
 }
 
 bool WiFiConfigManager::isConnected() {
-    return WiFi.status() == WL_CONNECTED;
+  return WiFi.status() == WL_CONNECTED;
 }
 
 IPAddress WiFiConfigManager::getIP() {
-    if (WiFi.getMode() == WIFI_STA) {
-        return WiFi.localIP();
-    } else {
-        return WiFi.softAPIP();
-    }
+  if (WiFi.getMode() == WIFI_STA) {
+    return WiFi.localIP();
+  } else {
+    return WiFi.softAPIP();
+  }
 }
 
 bool WiFiConfigManager::setWiFiCredentials(const String& ssid, const String& password) {
-    if (ssid.length() == 0) {
-        return false;
-    }
+  if (ssid.length() == 0) {
+    return false;
+  }
 
-    _targetSSID = ssid;
-    _targetPassword = password;
+  _targetSSID = ssid;
+  _targetPassword = password;
+
+  // 将WiFi凭据保存到EEPROM
+  writeToEEPROM(SSID_ADDR, _targetSSID);
+  writeToEEPROM(PASS_ADDR, _targetPassword);
+  EEPROM.commit();
+
+  _shouldConnect = true;
+  return true;
+}
+
+void WiFiConfigManager::clearWiFiCredentials() {
+  writeToEEPROM(SSID_ADDR, "");
+  writeToEEPROM(PASS_ADDR, "");
+  EEPROM.commit();
+
+  _targetSSID = "";
+  _targetPassword = "";
+}
+
+void WiFiConfigManager::setConnectionTimeout(int seconds) {
+  _connectionTimeout = seconds;
+}
+
+void WiFiConfigManager::setConnectedCallback(void (*callback)()) {
+  _connectedCallback = callback;
+}
+
+void WiFiConfigManager::setAPModeCallback(void (*callback)()) {
+  _apModeCallback = callback;
+}
+
+void WiFiConfigManager::setupAPMode() {
+  Serial.println("Setting up AP Mode");
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(_apSSID.c_str(), _apPassword.c_str());
+
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(IP);
+
+  // 配置Web服务器路由
+  _server->on("/", HTTP_GET, handleRootWrapper);
+  _server->on("/save", HTTP_POST, handleSaveWrapper);
+  _server->onNotFound(handleNotFoundWrapper);
+
+  _server->begin();
+  Serial.println("HTTP server started");
+
+  // 触发AP模式回调
+  if (_apModeCallback) {
+    _apModeCallback();
+  }
+}
+
+void WiFiConfigManager::connectToWiFi() {
+  Serial.println("Connecting to WiFi...");
+  Serial.println("SSID: " + _targetSSID);
+  Serial.println("Password: " + _targetPassword);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(_targetSSID.c_str(), _targetPassword.c_str());
+
+  // 尝试连接，根据设置的超时时间
+  int timeout = _connectionTimeout;
+  while (WiFi.status() != WL_CONNECTED && timeout > 0) {
+    delay(1000);
+    Serial.print(".");
+    timeout--;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nConnected to WiFi!");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+
+    // 触发连接成功回调
+    if (_connectedCallback) {
+      _connectedCallback();
+    }
+  } else {
+    Serial.println("\nFailed to connect to WiFi!");
+  }
+}
+
+void WiFiConfigManager::handleRoot() {
+  _server->send(200, "text/html", _htmlPage);
+}
+
+void WiFiConfigManager::handleSave() {
+  if (_server->hasArg("ssid") && _server->hasArg("password")) {
+    _targetSSID = _server->arg("ssid");
+    _targetPassword = _server->arg("password");
 
     // 将WiFi凭据保存到EEPROM
     writeToEEPROM(SSID_ADDR, _targetSSID);
     writeToEEPROM(PASS_ADDR, _targetPassword);
     EEPROM.commit();
 
-    _shouldConnect = true;
-    return true;
-}
-
-void WiFiConfigManager::clearWiFiCredentials() {
-    writeToEEPROM(SSID_ADDR, "");
-    writeToEEPROM(PASS_ADDR, "");
-    EEPROM.commit();
-
-    _targetSSID = "";
-    _targetPassword = "";
-}
-
-void WiFiConfigManager::setConnectionTimeout(int seconds) {
-    _connectionTimeout = seconds;
-}
-
-void WiFiConfigManager::setConnectedCallback(void (*callback)()) {
-    _connectedCallback = callback;
-}
-
-void WiFiConfigManager::setAPModeCallback(void (*callback)()) {
-    _apModeCallback = callback;
-}
-
-void WiFiConfigManager::setupAPMode() {
-    Serial.println("Setting up AP Mode");
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(_apSSID.c_str(), _apPassword.c_str());
-
-    IPAddress IP = WiFi.softAPIP();
-    Serial.print("AP IP address: ");
-    Serial.println(IP);
-
-    // 配置Web服务器路由
-    _server->on("/", HTTP_GET, handleRootWrapper);
-    _server->on("/save", HTTP_POST, handleSaveWrapper);
-    _server->onNotFound(handleNotFoundWrapper);
-
-    _server->begin();
-    Serial.println("HTTP server started");
-
-    // 触发AP模式回调
-    if (_apModeCallback) {
-        _apModeCallback();
-    }
-}
-
-void WiFiConfigManager::connectToWiFi() {
-    Serial.println("Connecting to WiFi...");
+    Serial.println("New WiFi credentials saved:");
     Serial.println("SSID: " + _targetSSID);
     Serial.println("Password: " + _targetPassword);
 
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(_targetSSID.c_str(), _targetPassword.c_str());
+    // 先发送响应
+    _server->send(200, "text/html", _successPage);
+    
+    // 添加短暂延迟确保响应被发送
+    delay(1000);
 
-    // 尝试连接，根据设置的超时时间
-    int timeout = _connectionTimeout;
-    while (WiFi.status() != WL_CONNECTED && timeout > 0) {
-        delay(1000);
-        Serial.print(".");
-        timeout--;
-    }
-
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\nConnected to WiFi!");
-        Serial.print("IP Address: ");
-        Serial.println(WiFi.localIP());
-
-        // 触发连接成功回调
-        if (_connectedCallback) {
-            _connectedCallback();
-        }
-    } else {
-        Serial.println("\nFailed to connect to WiFi!");
-    }
+    // 然后在主循环中设置连接标志
+    _shouldConnect = true;
+  } else {
+    _server->send(400, "text/plain", "Missing required parameters");
+  }
 }
 
-void WiFiConfigManager::handleRoot() {
-    _server->send(200, "text/html", _htmlPage);
-}
-
-void WiFiConfigManager::handleSave() {
-    if (_server->hasArg("ssid") && _server->hasArg("password")) {
-        _targetSSID = _server->arg("ssid");
-        _targetPassword = _server->arg("password");
-
-        // 将WiFi凭据保存到EEPROM
-        writeToEEPROM(SSID_ADDR, _targetSSID);
-        writeToEEPROM(PASS_ADDR, _targetPassword);
-        EEPROM.commit();
-
-        Serial.println("New WiFi credentials saved:");
-        Serial.println("SSID: " + _targetSSID);
-        Serial.println("Password: " + _targetPassword);
-
-        _server->send(200, "text/html", _successPage);
-
-        // 设置标志，在主循环中尝试连接
-        _shouldConnect = true;
-    } else {
-        _server->send(400, "text/plain", "Missing required parameters");
-    }
-}
 
 void WiFiConfigManager::handleNotFound() {
-    _server->send(404, "text/plain", "Not found");
+  _server->send(404, "text/plain", "Not found");
 }
 
 // 从EEPROM读取字符串
 String WiFiConfigManager::readFromEEPROM(int startAddr) {
-    char data[32];
-    for (int i = 0; i < 32; i++) {
-        data[i] = char(EEPROM.read(startAddr + i));
-    }
-    data[31] = '\0'; // 确保字符串结束
-    return String(data);
+  char data[32];
+  for (int i = 0; i < 32; i++) {
+    data[i] = char(EEPROM.read(startAddr + i));
+  }
+  data[31] = '\0';  // 确保字符串结束
+  return String(data);
 }
 
 // 将字符串写入EEPROM
 void WiFiConfigManager::writeToEEPROM(int startAddr, String data) {
-    for (int i = 0; i < data.length(); i++) {
-        EEPROM.write(startAddr + i, data[i]);
-    }
-    // 写入字符串结束符
-    EEPROM.write(startAddr + data.length(), '\0');
+  for (int i = 0; i < data.length(); i++) {
+    EEPROM.write(startAddr + i, data[i]);
+  }
+  // 写入字符串结束符
+  EEPROM.write(startAddr + data.length(), '\0');
 }
 
 // 静态回调包装器
 void WiFiConfigManager::handleRootWrapper() {
-    if (_instance) {
-        _instance->handleRoot();
-    }
+  if (_instance) {
+    _instance->handleRoot();
+  }
 }
 
 void WiFiConfigManager::handleSaveWrapper() {
-    if (_instance) {
-        _instance->handleSave();
-    }
+  if (_instance) {
+    _instance->handleSave();
+  }
 }
 
 void WiFiConfigManager::handleNotFoundWrapper() {
-    if (_instance) {
-        _instance->handleNotFound();
-    }
+  if (_instance) {
+    _instance->handleNotFound();
+  }
 }

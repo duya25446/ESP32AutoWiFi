@@ -14,6 +14,7 @@ public:
                       int eepromSize = 128);
 
     // 初始化函数
+    void E2PROMbegin();
     void begin();
 
     // 处理循环
@@ -71,6 +72,7 @@ private:
     void handleNotFound();
 
     // EEPROM操作函数
+
     String readFromEEPROM(int startAddr);
     void writeToEEPROM(int startAddr, String data);
 

@@ -33,7 +33,11 @@ void setup() {
   wifiManager.setConnectionTimeout(15);
 
   // 初始化WiFiConfigManager
+  wifiManager.E2PROMbegin();
+  wifiManager.clearWiFiCredentials();
   wifiManager.begin();
+
+
 }
 
 void loop() {

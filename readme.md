@@ -2,7 +2,7 @@
 
 ## 简介
 
-ESP32 WiFiConfigManager 是一个便捷的ESP32 WiFi配置库，它能够帮助您的ESP32项目更容易地进行WiFi连接管理。通过该库，您可以：
+ESP32 WiFiConfigManager 是一个便捷的Arduino ESP32 WiFi配置库，它能够帮助您的ESP32项目更容易地进行WiFi连接管理。通过该库，您可以：
 
 - 创建一个配置门户（AP模式），允许用户通过手机或电脑轻松配置WiFi连接
 - 自动保存用户配置的WiFi凭据到EEPROM
@@ -20,21 +20,21 @@ ESP32 WiFiConfigManager 是一个便捷的ESP32 WiFi配置库，它能够帮助�
 - 🔌 自定义DNS服务，可使用域名访问
 - ⚙️ 可定制的超时和回调机制
 - 🔒 支持AP模式密码保护
+__注意，这个库引用了很多乐鑫的官方库，导致占用空间很多，单独编译该库的占用如下__
+>FOR ESP32 4MB:
+>Sketch uses 946732 bytes (72%) of program storage space. Maximum is 1310720 bytes.
+>Global variables use 45780 bytes (13%) of dynamic memory, leaving 281900 bytes for local variables. Maximum is 327680 bytes.
 
+>FOR ESP32S3 8MB:
+>Sketch uses 911140 bytes (27%) of program storage space. Maximum is 3342336 bytes.
+>Global variables use 44764 bytes (13%) of dynamic memory, leaving 282916 bytes for local variables. Maximum is 327680 bytes.
+
+>FOR ESP32C3 4MB:
+>Sketch uses 973764 bytes (74%) of program storage space. Maximum is 1310720 bytes.
+>Global variables use 35900 bytes (10%) of dynamic memory, leaving 291780 bytes for local variables. Maximum is 327680 bytes.
 ## 安装
 
-### 通过Arduino库管理器 (推荐)
-
-1. 打开Arduino IDE
-2. 选择菜单 `工具 > 管理库...`
-3. 搜索 "ESP32 WiFiConfigManager"
-4. 点击 "安装"
-
-### 手动安装
-
-1. 下载此仓库的ZIP文件
-2. 打开Arduino IDE, 选择 `项目 > 加载库 > 添加.ZIP库`
-3. 选择下载的ZIP文件
+很遗憾我不会上传到arduino lib也不会打包成zip,这就是一个.cpp和.h类，可以直接拉到你的项目文件夹内，arduino会自动引用同文件夹下的所有源文件，你可以直接在项目中 `#include <WiFiConfigManager.h>` 来使用这个类库。
 
 ## 基本使用
 

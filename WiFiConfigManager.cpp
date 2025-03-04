@@ -4,15 +4,20 @@
 WiFiConfigManager* WiFiConfigManager::_instance = nullptr;
 
 // 构造函数
-WiFiConfigManager::WiFiConfigManager(const char* apSSID, const char* apPassword, int eepromSize)
+WiFiConfigManager::WiFiConfigManager(const char* apSSID,
+                                     const char* apPassword,
+                                     const char* apDomain,
+                                     int eepromSize)
   : _apSSID(apSSID),
     _apPassword(apPassword),
+    _apDomain(apDomain),
     _eepromSize(eepromSize),
     _shouldConnect(false),
     _connectionTimeout(20),
     _connectedCallback(nullptr),
     _apModeCallback(nullptr) {
   _server = new WebServer(80);
+  _dnsServer = new DNSServer();
   _instance = this;
 
   // HTML页面
@@ -132,8 +137,7 @@ WiFiConfigManager::WiFiConfigManager(const char* apSSID, const char* apPassword,
 )rawliteral";
 }
 
-void WiFiConfigManager::E2PROMbegin()
-{
+void WiFiConfigManager::E2PROMbegin() {
   // 初始化EEPROM
   EEPROM.begin(_eepromSize);
 }
@@ -161,6 +165,11 @@ void WiFiConfigManager::begin() {
 }
 
 void WiFiConfigManager::loop() {
+  // 处理DNS请求
+  if (WiFi.getMode() == WIFI_AP) {
+    _dnsServer->processNextRequest();
+  }
+
   // 处理HTTP请求
   _server->handleClient();
 
@@ -243,6 +252,11 @@ void WiFiConfigManager::setupAPMode() {
   IPAddress IP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
   Serial.println(IP);
+  
+  // 设置DNS服务器
+  _dnsServer->start(DNS_PORT, _apDomain, IP);
+  Serial.println("DNS server started");
+  Serial.println("Domain: " + _apDomain);
 
   // 配置Web服务器路由
   _server->on("/", HTTP_GET, handleRootWrapper);
@@ -308,7 +322,7 @@ void WiFiConfigManager::handleSave() {
 
     // 先发送响应
     _server->send(200, "text/html", _successPage);
-    
+
     // 添加短暂延迟确保响应被发送
     delay(1000);
 

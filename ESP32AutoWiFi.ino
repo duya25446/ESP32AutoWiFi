@@ -5,7 +5,7 @@
 #include <WiFiConfigManager.h>
 
 // 创建WiFiConfigManager实例
-WiFiConfigManager wifiManager("ESP32_Config", "12345678");
+WiFiConfigManager wifiManager("ESP32_Config", "12345678", "wificonfig.com");
 
 // 连接成功回调函数
 void onWiFiConnected() {
@@ -34,10 +34,8 @@ void setup() {
 
   // 初始化WiFiConfigManager
   wifiManager.E2PROMbegin();
-  wifiManager.clearWiFiCredentials();
+  //wifiManager.clearWiFiCredentials();
   wifiManager.begin();
-
-
 }
 
 void loop() {
@@ -52,7 +50,5 @@ void loop() {
 
   } else {
     // WiFi未连接，执行不需要网络连接的操作
-
   }
 }
-

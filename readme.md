@@ -24,15 +24,15 @@ ESP32 WiFiConfigManager 是一个便捷的Arduino ESP32 WiFi配置库，它能�
 __注意，这个库引用了很多乐鑫的官方库，导致占用空间很多，单独编译该库的占用如下__
 
 
->FOR ESP32 4MB:
+FOR ESP32 4MB:
 >Sketch uses 946732 bytes (72%) of program storage space. Maximum is 1310720 bytes.
 >Global variables use 45780 bytes (13%) of dynamic memory, leaving 281900 bytes for local variables. Maximum is 327680 bytes.
 
->FOR ESP32S3 8MB:
+FOR ESP32S3 8MB:
 >Sketch uses 911140 bytes (27%) of program storage space. Maximum is 3342336 bytes.
 >Global variables use 44764 bytes (13%) of dynamic memory, leaving 282916 bytes for local variables. Maximum is 327680 bytes.
 
->FOR ESP32C3 4MB:
+FOR ESP32C3 4MB:
 >Sketch uses 973764 bytes (74%) of program storage space. Maximum is 1310720 bytes.
 >Global variables use 35900 bytes (10%) of dynamic memory, leaving 291780 bytes for local variables. Maximum is 327680 bytes.
 ## 安装

@@ -1,3 +1,5 @@
+#include <sys/_types.h>
+#include "EEPROM.h"
 #include "WiFiConfigManager.h"
 
 // 静态成员初始化
@@ -208,7 +210,25 @@ void WiFiConfigManager::E2PROMbegin() {
   EEPROM.begin(_eepromSize);
 }
 
+void WiFiConfigManager::ForceEnterAPConfigMode() {
+  if (EEPROM.read(AP_MOD_ADDR) == 0) {
+    Serial.println("reset to AP mode");
+    EEPROM.write(AP_MOD_ADDR, 1);
+    EEPROM.commit();
+    ESP.restart();
+  }
+}
+
 void WiFiConfigManager::begin() {
+
+  unsigned char apMode = EEPROM.read(AP_MOD_ADDR);
+  if (apMode == 1) {
+    Serial.println("Force Enter AP Config Mode");
+    setupAPMode();
+    EEPROM.write(AP_MOD_ADDR, 0);
+    EEPROM.commit();
+    return;
+  }
 
 
   // 尝试从EEPROM读取保存的WiFi凭据
@@ -283,7 +303,7 @@ bool WiFiConfigManager::setWiFiCredentials(const String& ssid, const String& pas
   // 将WiFi凭据保存到EEPROM
   writeToEEPROM(SSID_ADDR, _targetSSID);
   writeToEEPROM(PASS_ADDR, _targetPassword);
-  EEPROM.commit();
+
 
   _shouldConnect = true;
   return true;
@@ -292,7 +312,7 @@ bool WiFiConfigManager::setWiFiCredentials(const String& ssid, const String& pas
 void WiFiConfigManager::clearWiFiCredentials() {
   writeToEEPROM(SSID_ADDR, "");
   writeToEEPROM(PASS_ADDR, "");
-  EEPROM.commit();
+
 
   _targetSSID = "";
   _targetPassword = "";
@@ -380,7 +400,7 @@ void WiFiConfigManager::handleSave() {
     // 将WiFi凭据保存到EEPROM
     writeToEEPROM(SSID_ADDR, _targetSSID);
     writeToEEPROM(PASS_ADDR, _targetPassword);
-    EEPROM.commit();
+
 
     // 获取MQTT配置
     bool enableMQTT = _server->hasArg("enableMQTT");
@@ -401,6 +421,10 @@ void WiFiConfigManager::handleSave() {
       Serial.println("Client ID: " + mqttClientID);
 
       // 在这里可以将这些值存储到类成员变量中
+      _mqttServer = mqttServer;
+      _mqttPort = mqttPort.toInt();
+      _mqttClientID = mqttClientID;
+      _mqttPassword = mqttPassword;
       // _mqttServer = mqttServer;
       // _mqttPort = mqttPort;
       // 等等...
@@ -450,23 +474,64 @@ void WiFiConfigManager::handleNotFound() {
   _server->send(404, "text/plain", "Not found");
 }
 
+
+
 // 从EEPROM读取字符串
 String WiFiConfigManager::readFromEEPROM(int startAddr) {
-  char data[32];
-  for (int i = 0; i < 32; i++) {
-    data[i] = char(EEPROM.read(startAddr + i));
+  const int maxLength = 257;  // 最大长度，包括终止符号
+  char data[maxLength];
+  bool foundTerminator = false;
+
+  // 读取直到终止符或达到最大长度
+  for (int i = 0; i < maxLength - 1; i++) {
+    char c = char(EEPROM.read(startAddr + i));
+    data[i] = c;
+
+    // 如果找到终止符，标记并退出循环
+    if (c == '\0') {
+      foundTerminator = true;
+      break;
+    }
   }
-  data[31] = '\0';  // 确保字符串结束
+
+  // 如果没有找到终止符，返回空字符串
+  if (!foundTerminator) {
+    return String("");
+  }
+
+  // 确保字符串以终止符结束（虽然我们在循环中已经检测到终止符，但这里为了安全）
+  data[maxLength - 1] = '\0';
+
   return String(data);
 }
 
 // 将字符串写入EEPROM
-void WiFiConfigManager::writeToEEPROM(int startAddr, String data) {
+bool WiFiConfigManager::writeToEEPROM(int startAddr, String data) {
+  const int maxLength = 256;  // 最大可写入长度（不包括终止符）
+
+  // 检查起始地址是否有效（可以根据您的EEPROM实际大小调整）
+  if (startAddr < 0) {
+    return false;
+  }
+
+  // 截断过长的字符串
+  if (data.length() > maxLength) {
+    data = data.substring(0, maxLength);
+  }
+
+  // 写入字符串内容
   for (int i = 0; i < data.length(); i++) {
     EEPROM.write(startAddr + i, data[i]);
   }
+
   // 写入字符串结束符
   EEPROM.write(startAddr + data.length(), '\0');
+
+  // EEPROM.commit()确保数据被写入
+  if (!EEPROM.commit()) {
+    return false;
+  }
+  return true;
 }
 
 // 静态回调包装器

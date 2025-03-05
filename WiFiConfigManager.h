@@ -8,13 +8,15 @@
 #include <DNSServer.h>
 
 
+#define EEPROM_MAX_LENGTH 256
+
 class WiFiConfigManager {
 public:
   // 构造函数
   WiFiConfigManager(const char* apSSID = "ESP32_Config",
                     const char* apPassword = "12345678",
                     const char* apDomain = "wificonfig.com",
-                    int eepromSize = 128);
+                    int eepromSize = 1024);
 
   // 初始化函数
   void E2PROMbegin();
@@ -35,6 +37,9 @@ public:
   // 手动清除存储的WiFi凭据
   void clearWiFiCredentials();
 
+  //强制重置到AP模式
+  void ForceEnterAPConfigMode();
+
   // 设置连接尝试超时时间（秒）
   void setConnectionTimeout(int seconds);
 
@@ -53,13 +58,15 @@ private:
 
   // EEPROM地址
   int _eepromSize;
-  static const int SSID_ADDR = 0;
-  static const int PASS_ADDR = 32;
+  static const int AP_MOD_ADDR = 0;
+  static const int SSID_ADDR = 0+1;
+  static const int PASS_ADDR = 32+1;
+
   //MQTT和UDP广播的字段
   bool _mqttEnabled;
   bool _udpEnabled;
   String _mqttServer;
-  String _mqttPort;
+  int _mqttPort;
   String _mqttUsername;
   String _mqttPassword;
   String _mqttClientID;
@@ -91,7 +98,7 @@ private:
   // EEPROM操作函数
 
   String readFromEEPROM(int startAddr);
-  void writeToEEPROM(int startAddr, String data);
+  bool writeToEEPROM(int startAddr, String data);
 
   // 静态回调处理器
   static WiFiConfigManager* _instance;

@@ -32,9 +32,14 @@ void setup() {
   // 设置连接尝试超时时间（秒）
   wifiManager.setConnectionTimeout(15);
 
+  
+
   // 初始化WiFiConfigManager
   wifiManager.E2PROMbegin();
-  wifiManager.clearWiFiCredentials();
+
+  //wifiManager.ForceEnterAPConfigMode();
+
+  //wifiManager.clearWiFiCredentials();
   wifiManager.begin();
 
 }

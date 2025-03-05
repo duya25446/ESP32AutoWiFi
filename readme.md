@@ -227,7 +227,7 @@ void setup() {
   // 如果按钮被按下，清除存储的配置并进入AP模式
   if (digitalRead(configPin) == LOW) {
     Serial.println("按钮按下，进入配置模式");
-    wifiManager.clearWiFiCredentials();
+    wifiManager.forceEnterAPConfigMode();
   }
   
   wifiManager.begin();

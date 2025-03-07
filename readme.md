@@ -7,6 +7,8 @@ ESP32 WiFiConfigManager 是一个便捷的Arduino ESP32 WiFi配置库，它能�
 - 创建一个配置门户（AP模式），允许用户通过手机或电脑轻松配置WiFi连接
 - 自动保存用户配置的WiFi凭据到EEPROM
 - 在设备重启后自动连接到保存的WiFi网络
+- 配置并保存MQTT服务器连接参数
+- 配置并保存UDP广播参数
 - 通过友好的域名访问配置页面，无需记忆IP地址
 - 自定义连接成功和AP模式激活的回调函数
 - 简化ESP32项目中的WiFi管理逻辑
@@ -20,6 +22,8 @@ ESP32 WiFiConfigManager 是一个便捷的Arduino ESP32 WiFi配置库，它能�
 - 🔌 自定义DNS服务，可使用域名访问
 - ⚙️ 可定制的超时和回调机制
 - 🔒 支持AP模式密码保护
+- 📊 MQTT连接配置
+- 📡 UDP广播配置
 
 __注意，这个库引用了很多乐鑫的官方库，导致占用空间很多，单独编译该库的占用如下(代码修改以后又不一样了但是差别不是很大，参考即可)__
 
@@ -37,6 +41,9 @@ FOR ESP32C3 4MB:
 >Global variables use 35900 bytes (10%) of dynamic memory, leaving 291780 bytes for local variables. Maximum is 327680 bytes.
 
 ## 版本
+
+v0.3：
+优化了EEPROM读写操作，减少写入次数以延长Flash寿命；增加了配置读取功能，可以通过简单的API获取已保存的配置；改进了错误处理和边界情况优化；配置页面现在能显示已保存的设置；修复了部分安全和稳定性问题。
 
 v0.2：
 HTML网页加入MQTT选项和基于JS的折叠表单，包括ID USERNAME PASSWORD SERVER和UDP广播选项，加入打印功能用于测试，计划在下个版本加入MQTT连接和在内网UDP广播自己的IP与设定的设备名功能。
@@ -62,21 +69,28 @@ WiFiConfigManager wifiManager("ESP32_Config", "12345678", "wificonfig.com");
 
 // 连接成功回调函数
 void onWiFiConnected() {
-  Serial.println("WiFi已连接！");
-  // 在这里添加WiFi连接成功后需要执行的代码
+  Serial.println("WiFi Connected Successfully!");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+  
+  // 打印保存的配置信息
+  if (wifiManager.getMQTTEnabled()) {
+    Serial.println("MQTT Configuration:");
+    Serial.println("- Server: " + wifiManager.getMQTTServer());
+    Serial.println("- Port: " + wifiManager.getMQTTPort());
+  }
 }
 
 // AP模式激活回调函数
 void onAPModeActivated() {
-  Serial.println("已进入配置模式");
-  Serial.println("请连接到ESP32_Config热点，密码为12345678");
-  Serial.println("然后打开浏览器访问 http://wificonfig.com 进行配置");
-  // 可以在这里添加指示灯代码，表明设备处于配置模式
+  Serial.println("AP Mode Activated!");
+  Serial.println("Please connect to ESP32_Config WiFi network with password 12345678");
+  Serial.println("Then open http://wificonfig.com in your browser to configure");
 }
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("启动中...");
+  Serial.println("Starting...");
   
   // 设置回调函数
   wifiManager.setConnectedCallback(onWiFiConnected);
@@ -84,8 +98,13 @@ void setup() {
   
   // 设置连接尝试超时时间（秒）
   wifiManager.setConnectionTimeout(15);
-  //初始化EEPROM
-  wifiManager.E2PROMbegin();
+  
+  // 初始化EEPROM
+  wifiManager.eepromBegin();
+  
+  // 强制进入配置模式（可选，取消注释即可启用）
+  // wifiManager.forceEnterAPConfigMode();
+  
   // 初始化WiFiConfigManager
   wifiManager.begin();
 }
@@ -102,6 +121,9 @@ void loop() {
     // WiFi未连接，执行不需要网络连接的操作
     // 例如：本地数据采集、显示等
   }
+  
+  // 短暂延时以降低CPU使用率
+  delay(10);
 }
 ```
 __（图还是0.1版本的，等0.3版本后再更新）__
@@ -128,7 +150,7 @@ __（图还是0.1版本的，等0.3版本后再更新）__
 WiFiConfigManager(const char* apSSID = "ESP32_Config", 
                  const char* apPassword = "12345678",
                  const char* apDomain = "wificonfig.com",
-                 int eepromSize = 128);
+                 int eepromSize = 1024);
 ```
 
 - `apSSID`: AP模式的WiFi名称
@@ -137,6 +159,9 @@ WiFiConfigManager(const char* apSSID = "ESP32_Config",
 - `eepromSize`: EEPROM分配的大小（以字节为单位）
 
 ### 主要方法
+
+#### `void eepromBegin()`
+初始化EEPROM并加载保存的配置数据。必须在`begin()`之前调用。
 
 #### `void begin()`
 初始化WiFiConfigManager。如果有已保存的WiFi配置，会尝试连接；如果连接失败或没有保存的配置，会进入AP模式。
@@ -156,6 +181,9 @@ WiFiConfigManager(const char* apSSID = "ESP32_Config",
 #### `void clearWiFiCredentials()`
 清除存储的WiFi凭据。
 
+#### `void forceEnterAPConfigMode()`
+强制设备进入AP配置模式，无论是否有已保存的配置。
+
 #### `void setConnectionTimeout(int seconds)`
 设置连接尝试的超时时间（默认20秒）。
 
@@ -165,54 +193,79 @@ WiFiConfigManager(const char* apSSID = "ESP32_Config",
 #### `void setAPModeCallback(void (*callback)())`
 设置进入AP模式的回调函数。
 
+### 新增配置获取方法
+
+#### `String getMQTTServer() const`
+获取配置的MQTT服务器地址。
+
+#### `String getMQTTPort() const`
+获取配置的MQTT服务器端口。
+
+#### `String getMQTTUsername() const`
+获取配置的MQTT用户名。
+
+#### `String getMQTTPassword() const`
+获取配置的MQTT密码。
+
+#### `String getMQTTClientID() const`
+获取配置的MQTT客户端ID。
+
+#### `String getUDPPort() const`
+获取配置的UDP广播端口。
+
+#### `String getDeviceName() const`
+获取配置的设备名称。
+
+#### `bool getMQTTEnabled() const`
+获取MQTT功能是否启用。
+
+#### `bool getUDPEnabled() const`
+获取UDP广播功能是否启用。
+
 ## 配置页面使用指南
 
 1. 当ESP32进入配置模式时，它会创建一个名为`apSSID`的WiFi热点
 2. 使用您的手机或电脑连接到此热点（密码为`apPassword`）
 3. 打开浏览器并访问`http://wificonfig.com`或`http://192.168.4.1`
 4. 在配置页面中输入您要连接的WiFi网络的SSID和密码
-5. 点击"连接"按钮
-6. 若连接成功，ESP32将保存这些设置并重启为正常模式
-7. 若连接失败，它将重新进入配置模式，您可以再次尝试
+5. 如需配置MQTT连接，勾选"Enable MQTT Connection"并填写相关信息
+6. 如需配置UDP广播，勾选"Enable Periodic UDP Broadcast"并填写相关信息
+7. 点击"Save Configuration"按钮
+8. 若连接成功，ESP32将保存这些设置并重启为正常模式
+9. 若连接失败，它将重新进入配置模式，您可以再次尝试
+
+## EEPROM存储机制
+
+本库使用EEPROM来保存配置信息，存储布局如下：
+
+- AP_MOD: 地址0，长度1字节（控制是否进入AP模式）
+- SSID: 地址1-32，长度32字节
+- PASS: 地址33-64，长度32字节
+- MQTT_ENABLE: 地址65，长度1字节
+- MQTT_DEVICE_ID: 地址66-166，长度101字节
+- MQTT_SERVER: 地址167-198，长度32字节
+- MQTT_PORT: 地址199-204，长度6字节
+- MQTT_USERNAME: 地址205-305，长度101字节
+- MQTT_PASSWD: 地址306-562，长度257字节
+- UDP_ENABLE: 地址563，长度1字节
+- UDP_DEVICE_NAME: 地址564-595，长度32字节
+- UDP_PORT: 地址596-601，长度6字节
+
+总共需要602字节的EEPROM空间。为了延长Flash寿命，库采用了以下优化：
+
+- 仅在数据变化时才写入EEPROM
+- 使用延迟提交机制，减少频繁写入
+- 在写入前检查数据是否已存在
 
 ## 注意事项
 
 - AP模式的DNS功能仅在设备连接到ESP32热点时有效
 - 确保选择唯一的AP名称，避免与现有网络冲突
 - 建议设置AP密码以增强安全性
-- 配置页面使用的是纯HTML/CSS，无需外部资源，适合离线环境
+- 配置页面使用的是纯HTML/CSS/JavaScript，无需外部资源，适合离线环境
+- 由于EEPROM存储空间有限，请注意各字段的最大长度限制
 
 ## 高级使用
-
-### 自定义配置页面
-
-您可以通过修改库中的HTML模板来自定义配置页面的外观。在创建WiFiConfigManager实例后，可以使用setCustomHtml方法：
-
-```cpp
-const char* customHtml = R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-    <title>我的自定义WiFi配置</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        /* 您的自定义CSS */
-    </style>
-</head>
-<body>
-    <!-- 您的自定义HTML -->
-    <form action="/save" method="post">
-        <!-- 表单元素必须保留name属性 -->
-        <input type="text" name="ssid">
-        <input type="password" name="password">
-        <input type="submit" value="保存配置">
-    </form>
-</body>
-</html>
-)rawliteral";
-
-wifiManager.setCustomHtml(customHtml);
-```
 
 ### 在特定条件下强制进入配置模式
 
@@ -224,13 +277,49 @@ void setup() {
   // ...
   pinMode(configPin, INPUT_PULLUP);
   
-  // 如果按钮被按下，清除存储的配置并进入AP模式
+  // 如果按钮被按下，强制进入AP模式
   if (digitalRead(configPin) == LOW) {
-    Serial.println("按钮按下，进入配置模式");
+    Serial.println("Button pressed, entering config mode");
     wifiManager.forceEnterAPConfigMode();
   }
   
+  wifiManager.eepromBegin();
   wifiManager.begin();
+}
+```
+
+### 手动设置和清除WiFi凭据
+
+```cpp
+// 手动设置WiFi凭据
+wifiManager.setWiFiCredentials("MyWiFi", "MyPassword");
+
+// 清除保存的WiFi凭据
+wifiManager.clearWiFiCredentials();
+```
+
+### 定期检查WiFi连接状态
+
+```cpp
+unsigned long lastCheckTime = 0;
+const long checkInterval = 30000; // 检查间隔为30秒
+
+void loop() {
+  wifiManager.loop();
+  
+  unsigned long currentTime = millis();
+  if (currentTime - lastCheckTime >= checkInterval) {
+    lastCheckTime = currentTime;
+    
+    if (wifiManager.isConnected()) {
+      Serial.print("Connected to WiFi - SSID: ");
+      Serial.print(WiFi.SSID());
+      Serial.print(", IP: ");
+      Serial.println(wifiManager.getIP());
+    } else {
+      Serial.println("WiFi not connected");
+    }
+  }
 }
 ```
 
@@ -256,6 +345,10 @@ void setup() {
 4. **提交表单后页面出现错误**
    - 检查ESP32的串口输出查看详细错误信息
    - 可能是连接尝试过程中断开了AP连接，尝试增加超时时间
+
+5. **EEPROM读写问题**
+   - 如果遇到EEPROM读写错误，尝试增加eepromSize参数
+   - 确保在调用其他方法前已调用eepromBegin()
 
 ## 项目贡献
 

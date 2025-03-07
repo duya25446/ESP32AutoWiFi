@@ -1,28 +1,28 @@
 #include "WiFiConfigManager.h"
 
-// 静态成员初始化
+// 初始化静态成员变量
 WiFiConfigManager* WiFiConfigManager::_instance = nullptr;
 
-// 构造函数
+// 构造函数：初始化WiFiConfigManager对象，设置AP模式参数和Web服务器
 WiFiConfigManager::WiFiConfigManager(const char* apSSID,
                                      const char* apPassword,
                                      const char* apDomain,
                                      int eepromSize)
-  : _apSSID(apSSID),
-    _apPassword(apPassword),
-    _apDomain(apDomain),
-    _eepromSize(eepromSize),
-    _shouldConnect(false),
-    _connectionTimeout(20),
-    _connectedCallback(nullptr),
-    _apModeCallback(nullptr),
-    _commitNeeded(false),
-    _lastCommitTime(0) {
-  _server = new WebServer(80);
-  _dnsServer = new DNSServer();
-  _instance = this;
+  : _apSSID(apSSID),              // AP模式的SSID
+    _apPassword(apPassword),      // AP模式的密码
+    _apDomain(apDomain),          // AP模式的域名
+    _eepromSize(eepromSize),      // EEPROM分配大小
+    _shouldConnect(false),        // 是否尝试连接WiFi的标志
+    _connectionTimeout(20),       // WiFi连接超时时间（秒）
+    _connectedCallback(nullptr),  // WiFi连接成功的回调函数
+    _apModeCallback(nullptr),     // 进入AP模式的回调函数
+    _commitNeeded(false),         // 是否需要提交EEPROM更改的标志
+    _lastCommitTime(0) {          // 上次提交EEPROM的时间
+  _server = new WebServer(80);    // 创建Web服务器实例
+  _dnsServer = new DNSServer();   // 创建DNS服务器实例
+  _instance = this;               // 设置静态实例指针
 
-  // HTML页面
+  // 配置页面的HTML模板，包含CSS和JavaScript
   _htmlPage = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -105,8 +105,6 @@ WiFiConfigManager::WiFiConfigManager(const char* apSSID,
             var udpConfig = document.getElementById('udpConfig');
             udpConfig.className = checkbox.checked ? 'udp-config' : 'udp-config hidden';
         }
-        
-        // 页面加载时根据保存的设置显示/隐藏配置区域
         window.onload = function() {
             toggleMQTT();
             toggleUDP();
@@ -119,44 +117,44 @@ WiFiConfigManager::WiFiConfigManager(const char* apSSID,
         <form action="/save" method="post">
             <h2>WiFi Settings</h2>
             <label for="ssid">WiFi SSID:</label>
-            <input type="text" id="ssid" name="ssid" placeholder="Enter WiFi name" value="%SSID%" required>
+            <input type="text" id="ssid" name="ssid" placeholder="Enter WiFi name" required>
 
             <label for="password">WiFi Password:</label>
-            <input type="password" id="password" name="password" placeholder="Enter WiFi password" value="%PASSWORD%" required>
+            <input type="password" id="password" name="password" placeholder="Enter WiFi password" required>
 
             <h2>MQTT Configuration</h2>
             <label>
-                <input type="checkbox" id="enableMQTT" name="enableMQTT" %MQTT_CHECKED% onchange="toggleMQTT()"> Enable MQTT Connection
+                <input type="checkbox" id="enableMQTT" name="enableMQTT" onchange="toggleMQTT()"> Enable MQTT Connection
             </label>
 
             <div id="mqttConfig" class="mqtt-config hidden">
                 <label for="mqttServer">MQTT Server Address:</label>
-                <input type="text" id="mqttServer" name="mqttServer" placeholder="e.g., mqtt.example.com" value="%MQTT_SERVER%">
+                <input type="text" id="mqttServer" name="mqttServer" placeholder="e.g., mqtt.example.com">
 
                 <label for="mqttPort">MQTT Port:</label>
-                <input type="number" id="mqttPort" name="mqttPort" placeholder="e.g., 1883" value="%MQTT_PORT%">
+                <input type="number" id="mqttPort" name="mqttPort" placeholder="e.g., 1883">
 
                 <label for="mqttUsername">MQTT Username:</label>
-                <input type="text" id="mqttUsername" name="mqttUsername" placeholder="Enter MQTT username" value="%MQTT_USERNAME%">
+                <input type="text" id="mqttUsername" name="mqttUsername" placeholder="Enter MQTT username">
 
                 <label for="mqttPassword">MQTT Password:</label>
-                <input type="password" id="mqttPassword" name="mqttPassword" placeholder="Enter MQTT password" value="%MQTT_PASSWORD%">
+                <input type="password" id="mqttPassword" name="mqttPassword" placeholder="Enter MQTT password">
 
                 <label for="mqttClientID">MQTT Client ID:</label>
-                <input type="text" id="mqttClientID" name="mqttClientID" placeholder="Enter MQTT client ID" value="%MQTT_CLIENT_ID%">
+                <input type="text" id="mqttClientID" name="mqttClientID" placeholder="Enter MQTT client ID">
             </div>
 
             <h2>UDP Broadcast</h2>
             <label>
-                <input type="checkbox" id="enableUDP" name="enableUDP" %UDP_CHECKED% onchange="toggleUDP()"> Enable Periodic UDP Broadcast
+                <input type="checkbox" id="enableUDP" name="enableUDP" onchange="toggleUDP()"> Enable Periodic UDP Broadcast
             </label>
 
             <div id="udpConfig" class="udp-config hidden">
                 <label for="udpPort">UDP Broadcast Port:</label>
-                <input type="number" id="udpPort" name="udpPort" placeholder="e.g., 4210" value="%UDP_PORT%">
+                <input type="number" id="udpPort" name="udpPort" placeholder="e.g., 4210">
 
                 <label for="deviceName">Device Name:</label>
-                <input type="text" id="deviceName" name="deviceName" placeholder="Enter device name" value="%DEVICE_NAME%">
+                <input type="text" id="deviceName" name="deviceName" placeholder="Enter device name">
             </div>
 
             <input type="submit" value="Save Configuration">
@@ -167,7 +165,7 @@ WiFiConfigManager::WiFiConfigManager(const char* apSSID,
 </html>
 )rawliteral";
 
-
+  // 成功页面的HTML模板
   _successPage = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -211,7 +209,7 @@ WiFiConfigManager::WiFiConfigManager(const char* apSSID,
 )rawliteral";
 }
 
-// EEPROM初始化
+// 初始化并启动EEPROM，然后加载配置数据
 void WiFiConfigManager::eepromBegin() {
   // 初始化EEPROM，设置预定义大小
   EEPROM.begin(_eepromSize);
@@ -219,7 +217,7 @@ void WiFiConfigManager::eepromBegin() {
   loadConfigFromEEPROM();
 }
 
-// 从EEPROM加载所有配置数据
+// 从EEPROM读取并加载所有配置数据到内存中
 void WiFiConfigManager::loadConfigFromEEPROM() {
   // 读取WiFi凭据
   _targetSSID = readFromEEPROM(SSID, 32);
@@ -238,24 +236,26 @@ void WiFiConfigManager::loadConfigFromEEPROM() {
   _deviceName = readFromEEPROM(UDP_DEVICE_NAME, 31);
   _udpPort = readFromEEPROM(UDP_PORT, 5);
 
-  Serial.println("配置数据已从EEPROM加载");
+  Serial.println("Configuration data loaded from EEPROM");
 }
 
+// 强制设备进入AP配置模式，通常用于重置设置或首次配置
 void WiFiConfigManager::forceEnterAPConfigMode() {
   // 检查当前模式，如果不是AP模式则切换
   if (EEPROM.read(AP_MOD) != 1) {
-    Serial.println("重置为AP配置模式");
+    Serial.println("Resetting to AP Configuration mode");
     EEPROM.write(AP_MOD, 1);  // 标记为AP模式
     EEPROM.commit();          // 确保数据写入EEPROM
     ESP.restart();            // 重启设备以应用更改
   }
 }
 
+// 开始WiFiConfigManager的主要功能，尝试连接WiFi或启动AP模式
 void WiFiConfigManager::begin() {
   // 首先检查是否需要强制进入AP模式
   uint8_t apMode = EEPROM.read(AP_MOD);
   if (apMode == 1) {
-    Serial.println("强制进入AP配置模式");
+    Serial.println("Forced into AP Configuration mode");
     setupAPMode();
     // 重置AP模式标记，下次启动将尝试正常连接
     EEPROM.write(AP_MOD, 0);
@@ -267,23 +267,24 @@ void WiFiConfigManager::begin() {
   if (_targetSSID.length() > 0) {
     connectToWiFi();
   } else {
-    Serial.println("未找到已保存的WiFi凭据");
+    Serial.println("No saved WiFi credentials found");
     setupAPMode();
     return;
   }
 
   // 如果连接失败，启动AP模式
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi连接失败，启动AP模式");
+    Serial.println("WiFi connection failed, starting AP mode");
     setupAPMode();
   } else {
-    Serial.println("WiFi连接成功");
+    Serial.println("WiFi connection successful");
     if (_connectedCallback) {
       _connectedCallback();
     }
   }
 }
 
+// 循环处理DNS请求、HTTP请求和WiFi连接状态
 void WiFiConfigManager::loop() {
   // 处理DNS请求
   if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
@@ -301,7 +302,7 @@ void WiFiConfigManager::loop() {
     // 如果连接成功，关闭AP模式
     if (WiFi.status() == WL_CONNECTED) {
       WiFi.softAPdisconnect(true);
-      Serial.println("连接成功后已禁用AP模式");
+      Serial.println("AP mode disabled after successful connection");
 
       // 触发连接成功回调
       if (_connectedCallback) {
@@ -319,20 +320,22 @@ void WiFiConfigManager::loop() {
   }
 }
 
-// 提交EEPROM更改，减少写入次数
+// 提交EEPROM更改，减少频繁写入对EEPROM的损耗
 void WiFiConfigManager::commitEEPROM() {
   if (_commitNeeded) {
-    Serial.println("提交EEPROM更改");
+    Serial.println("Committing EEPROM changes");
     EEPROM.commit();
     _commitNeeded = false;
     _lastCommitTime = millis();
   }
 }
 
+// 检查WiFi连接状态
 bool WiFiConfigManager::isConnected() {
   return WiFi.status() == WL_CONNECTED;
 }
 
+// 获取设备当前IP地址，根据工作模式返回不同的IP
 IPAddress WiFiConfigManager::getIP() {
   if (WiFi.getMode() == WIFI_STA) {
     return WiFi.localIP();
@@ -341,6 +344,7 @@ IPAddress WiFiConfigManager::getIP() {
   }
 }
 
+// 设置WiFi凭据并准备连接
 bool WiFiConfigManager::setWiFiCredentials(const String& ssid, const String& password) {
   if (ssid.length() == 0) {
     return false;
@@ -360,6 +364,7 @@ bool WiFiConfigManager::setWiFiCredentials(const String& ssid, const String& pas
   return success;
 }
 
+// 清除保存的WiFi凭据
 void WiFiConfigManager::clearWiFiCredentials() {
   writeToEEPROM(SSID, "", 32);
   writeToEEPROM(PASS, "", 32);
@@ -369,31 +374,35 @@ void WiFiConfigManager::clearWiFiCredentials() {
   _targetPassword = "";
 }
 
+// 设置WiFi连接超时时间
 void WiFiConfigManager::setConnectionTimeout(int seconds) {
   _connectionTimeout = seconds;
 }
 
+// 设置WiFi连接成功后的回调函数
 void WiFiConfigManager::setConnectedCallback(void (*callback)()) {
   _connectedCallback = callback;
 }
 
+// 设置进入AP模式后的回调函数
 void WiFiConfigManager::setAPModeCallback(void (*callback)()) {
   _apModeCallback = callback;
 }
 
+// 设置AP模式的配置，启动DNS和HTTP服务器
 void WiFiConfigManager::setupAPMode() {
-  Serial.println("设置AP模式");
+  Serial.println("Setting up AP mode");
   WiFi.mode(WIFI_AP);
   WiFi.softAP(_apSSID.c_str(), _apPassword.c_str());
 
   IPAddress IP = WiFi.softAPIP();
-  Serial.print("AP IP地址: ");
+  Serial.print("AP IP address: ");
   Serial.println(IP);
 
-  // 设置DNS服务器
+  // 设置DNS服务器，将所有域名请求重定向到AP的IP
   _dnsServer->start(DNS_PORT, "*", IP);
-  Serial.println("DNS服务器已启动");
-  Serial.println("域名: " + _apDomain);
+  Serial.println("DNS server started");
+  Serial.println("Domain: " + _apDomain);
 
   // 配置Web服务器路由
   _server->on("/", HTTP_GET, handleRootWrapper);
@@ -401,7 +410,7 @@ void WiFiConfigManager::setupAPMode() {
   _server->onNotFound(handleNotFoundWrapper);
 
   _server->begin();
-  Serial.println("HTTP服务器已启动");
+  Serial.println("HTTP server started");
 
   // 触发AP模式回调
   if (_apModeCallback) {
@@ -409,10 +418,11 @@ void WiFiConfigManager::setupAPMode() {
   }
 }
 
+// 尝试连接到配置的WiFi网络
 void WiFiConfigManager::connectToWiFi() {
-  Serial.println("正在连接到WiFi...");
+  Serial.println("Connecting to WiFi...");
   Serial.println("SSID: " + _targetSSID);
-  Serial.println("密码: " + _targetPassword);
+  Serial.println("Password: " + _targetPassword);
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(_targetSSID.c_str(), _targetPassword.c_str());
@@ -426,8 +436,8 @@ void WiFiConfigManager::connectToWiFi() {
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi连接成功!");
-    Serial.print("IP地址: ");
+    Serial.println("\nWiFi connection successful!");
+    Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
     // 触发连接成功回调
@@ -435,15 +445,16 @@ void WiFiConfigManager::connectToWiFi() {
       _connectedCallback();
     }
   } else {
-    Serial.println("\nWiFi连接失败!");
+    Serial.println("\nWiFi connection failed!");
   }
 }
 
+// 处理配置Web界面的根路径请求，显示配置页面
 void WiFiConfigManager::handleRoot() {
   // 准备HTML模板
   String html = _htmlPage;
 
-  // 替换模板中的占位符
+  // 替换模板中的占位符，填充当前配置值
   html.replace("%SSID%", _targetSSID);
   html.replace("%PASSWORD%", _targetPassword);
   html.replace("%MQTT_CHECKED%", _mqttEnabled == "1" ? "checked" : "");
@@ -459,6 +470,7 @@ void WiFiConfigManager::handleRoot() {
   _server->send(200, "text/html", html);
 }
 
+// 处理保存配置的请求，将配置写入EEPROM并尝试连接WiFi
 void WiFiConfigManager::handleSave() {
   bool configChanged = false;
 
@@ -561,7 +573,7 @@ void WiFiConfigManager::handleSave() {
       commitEEPROM();
     }
 
-    Serial.println("配置已保存:");
+    Serial.println("Configuration saved:");
     Serial.println("SSID: " + _targetSSID);
     Serial.println("Password: " + _targetPassword);
     Serial.println("MQTT Enabled: " + _mqttEnabled);
@@ -582,19 +594,19 @@ void WiFiConfigManager::handleSave() {
     // 设置连接标志
     _shouldConnect = true;
   } else {
-    _server->send(400, "text/plain", "缺少必要参数");
+    _server->send(400, "text/plain", "Missing required parameters");
   }
 }
 
+// 处理未找到的页面请求，将所有未找到的请求重定向到配置页面
 void WiFiConfigManager::handleNotFound() {
-  // 将所有未找到的请求重定向到配置页面
   _server->sendHeader("Location", "/", true);
   _server->send(302, "text/plain", "");
 }
 
-// 从EEPROM读取字符串，指定最大长度
+// 从EEPROM读取字符串，指定起始地址和最大长度
 String WiFiConfigManager::readFromEEPROM(int startAddr, int maxLength) {
-  char data[maxLength + 1];  // +1 用于结束符
+  char data[maxLength + 1];  // +1 用于字符串结束符
 
   // 读取数据直到结束符或达到最大长度
   int i;
@@ -609,7 +621,7 @@ String WiFiConfigManager::readFromEEPROM(int startAddr, int maxLength) {
   // 确保字符串以结束符结束
   data[i] = '\0';
 
-  // 如果进行特殊处理：如果是空字符或只有结束符，返回空字符串
+  // 特殊处理：如果是空字符或只有结束符，返回空字符串
   if (i == 0 || (i == 1 && data[0] == '\0')) {
     return String("");
   }
@@ -617,7 +629,7 @@ String WiFiConfigManager::readFromEEPROM(int startAddr, int maxLength) {
   return String(data);
 }
 
-// 将字符串写入EEPROM，指定最大长度
+// 将字符串写入EEPROM，指定起始地址和最大长度，减少不必要的写入操作
 bool WiFiConfigManager::writeToEEPROM(int startAddr, const String& data, int maxLength) {
   // 检查起始地址是否有效
   if (startAddr < 0 || startAddr + maxLength >= _eepromSize) {
@@ -626,7 +638,7 @@ bool WiFiConfigManager::writeToEEPROM(int startAddr, const String& data, int max
 
   // 检查数据是否超出限制
   if (data.length() > maxLength) {
-    Serial.println("警告: 数据长度超出限制，将被截断");
+    Serial.println("Warning: Data length exceeds limit, will be truncated");
     // 数据将被截断不报错，但会警告
   }
 
@@ -661,7 +673,7 @@ bool WiFiConfigManager::writeToEEPROM(int startAddr, const String& data, int max
   return true;
 }
 
-// 静态回调包装器
+// 静态回调函数包装器，将Web服务器请求转发给单例实例处理
 void WiFiConfigManager::handleRootWrapper() {
   if (_instance) {
     _instance->handleRoot();

@@ -455,17 +455,17 @@ void WiFiConfigManager::handleRoot() {
   String html = _htmlPage;
 
   // 替换模板中的占位符，填充当前配置值
-  html.replace("%SSID%", _targetSSID);
-  html.replace("%PASSWORD%", _targetPassword);
-  html.replace("%MQTT_CHECKED%", _mqttEnabled == "1" ? "checked" : "");
-  html.replace("%MQTT_SERVER%", _mqttServer);
-  html.replace("%MQTT_PORT%", _mqttPort);
-  html.replace("%MQTT_USERNAME%", _mqttUsername);
-  html.replace("%MQTT_PASSWORD%", _mqttPassword);
-  html.replace("%MQTT_CLIENT_ID%", _mqttClientID);
-  html.replace("%UDP_CHECKED%", _udpEnabled == "1" ? "checked" : "");
-  html.replace("%UDP_PORT%", _udpPort);
-  html.replace("%DEVICE_NAME%", _deviceName);
+  // html.replace("%SSID%", _targetSSID);
+  // html.replace("%PASSWORD%", _targetPassword);
+  // html.replace("%MQTT_CHECKED%", _mqttEnabled == "1" ? "checked" : "");
+  // html.replace("%MQTT_SERVER%", _mqttServer);
+  // html.replace("%MQTT_PORT%", _mqttPort);
+  // html.replace("%MQTT_USERNAME%", _mqttUsername);
+  // html.replace("%MQTT_PASSWORD%", _mqttPassword);
+  // html.replace("%MQTT_CLIENT_ID%", _mqttClientID);
+  // html.replace("%UDP_CHECKED%", _udpEnabled == "1" ? "checked" : "");
+  // html.replace("%UDP_PORT%", _udpPort);
+  // html.replace("%DEVICE_NAME%", _deviceName);
 
   _server->send(200, "text/html", html);
 }
